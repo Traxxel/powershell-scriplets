@@ -1,180 +1,180 @@
 <#
 .SYNOPSIS
-    Listet Teams, deren Kanäle und Owner auf und zeigt die Kanälnutzung an.
+    Lists Teams, their channels and owners and shows channel usage.
 
 .DESCRIPTION
-    Dieses Skript verbindet sich mit Microsoft Teams und listet alle Teams in der Organisation auf.
-    Für jedes Team werden die Owner und Kanäle angezeigt, sowie die Aktivität der Kanäle überprüft.
+    This script connects to Microsoft Teams and lists all teams in the organization.
+    For each team, it displays the owners and channels, and checks channel activity.
 
 .PARAMETER max
-    Maximale Anzahl der anzuzeigenden Teams. Standardmäßig werden alle Teams angezeigt.
+    Maximum number of teams to display. By default, all teams are shown.
 
 .PARAMETER help
-    Zeigt diese Hilfe an.
+    Shows this help information.
 
 .EXAMPLE
     .\teams-list-channelowners.ps1
-    Zeigt alle Teams und deren Details an.
+    Shows all teams and their details.
 
 .EXAMPLE
     .\teams-list-channelowners.ps1 --max 5
-    Zeigt nur die ersten 5 Teams an.
+    Shows only the first 5 teams.
 
 .EXAMPLE
     .\teams-list-channelowners.ps1 --help
-    Zeigt diese Hilfe an.
+    Shows this help information.
 #>
 
 param(
     [Parameter()]
-    [int]$max = 0,  # Standardwert 0 bedeutet alle Teams
+    [int]$max = 0,  # Default value 0 means all teams
     
     [Parameter()]
     [switch]$help
 )
 
-# Hilfe anzeigen, wenn --help angegeben wurde
+# Show help if --help was specified
 if ($help) {
     Get-Help $PSCommandPath -Detailed
     exit
 }
 
-Write-Host "Teams-Kanal-Analyse wird gestartet..." -ForegroundColor Green
+Write-Host "Starting Teams Channel Analysis..." -ForegroundColor Green
 
-# Prüfen, ob die benötigten Module installiert sind
-Write-Host "`nPrüfe benötigte Module..." -ForegroundColor Yellow
+# Check if required modules are installed
+Write-Host "`nChecking required modules..." -ForegroundColor Yellow
 if (-not (Get-Module -ListAvailable -Name MicrosoftTeams)) {
-    Write-Host "Microsoft Teams PowerShell-Modul wird installiert..." -ForegroundColor Yellow
+    Write-Host "Installing Microsoft Teams PowerShell module..." -ForegroundColor Yellow
     Install-Module -Name MicrosoftTeams -Force -AllowClobber
-    Write-Host "Microsoft Teams PowerShell-Modul wurde installiert." -ForegroundColor Green
+    Write-Host "Microsoft Teams PowerShell module installed." -ForegroundColor Green
 } else {
-    Write-Host "Microsoft Teams PowerShell-Modul ist bereits installiert." -ForegroundColor Green
+    Write-Host "Microsoft Teams PowerShell module already installed." -ForegroundColor Green
 }
 
 if (-not (Get-Module -ListAvailable -Name Microsoft.Graph)) {
-    Write-Host "Microsoft Graph PowerShell-Modul wird installiert..." -ForegroundColor Yellow
+    Write-Host "Installing Microsoft Graph PowerShell module..." -ForegroundColor Yellow
     Install-Module -Name Microsoft.Graph -Force -AllowClobber
-    Write-Host "Microsoft Graph PowerShell-Modul wurde installiert." -ForegroundColor Green
+    Write-Host "Microsoft Graph PowerShell module installed." -ForegroundColor Green
 } else {
-    Write-Host "Microsoft Graph PowerShell-Modul ist bereits installiert." -ForegroundColor Green
+    Write-Host "Microsoft Graph PowerShell module already installed." -ForegroundColor Green
 }
 
-# Module importieren
-Write-Host "`nImportiere Module..." -ForegroundColor Yellow
+# Import modules
+Write-Host "`nImporting modules..." -ForegroundColor Yellow
 if (-not (Get-Module -Name MicrosoftTeams)) {
-    Write-Host "Lade Microsoft Teams PowerShell-Modul..." -ForegroundColor Gray
+    Write-Host "Loading Microsoft Teams PowerShell module..." -ForegroundColor Gray
     Import-Module MicrosoftTeams -DisableNameChecking
-    Write-Host "Microsoft Teams PowerShell-Modul wurde geladen." -ForegroundColor Green
+    Write-Host "Microsoft Teams PowerShell module loaded." -ForegroundColor Green
 } else {
-    Write-Host "Microsoft Teams PowerShell-Modul ist bereits geladen." -ForegroundColor Green
+    Write-Host "Microsoft Teams PowerShell module already loaded." -ForegroundColor Green
 }
 
 if (-not (Get-Module -Name Microsoft.Graph)) {
-    Write-Host "Lade Microsoft Graph PowerShell-Modul..." -ForegroundColor Gray
+    Write-Host "Loading Microsoft Graph PowerShell module..." -ForegroundColor Gray
     Import-Module Microsoft.Graph -DisableNameChecking
-    Write-Host "Microsoft Graph PowerShell-Modul wurde geladen." -ForegroundColor Green
+    Write-Host "Microsoft Graph PowerShell module loaded." -ForegroundColor Green
 } else {
-    Write-Host "Microsoft Graph PowerShell-Modul ist bereits geladen." -ForegroundColor Green
+    Write-Host "Microsoft Graph PowerShell module already loaded." -ForegroundColor Green
 }
 
-# Verbindung zu Teams und Graph herstellen
-Write-Host "`nStelle Verbindung zu Teams und Graph her..." -ForegroundColor Yellow
+# Connect to Teams and Graph
+Write-Host "`nEstablishing connections to Teams and Graph..." -ForegroundColor Yellow
 
-# Prüfe Teams-Verbindung
+# Check Teams connection
 try {
     $teamsContext = Get-Team
-    Write-Host "Bestehende Teams-Verbindung gefunden." -ForegroundColor Green
+    Write-Host "Existing Teams connection found." -ForegroundColor Green
 } catch {
-    Write-Host "Stelle neue Teams-Verbindung her..." -ForegroundColor Yellow
+    Write-Host "Establishing new Teams connection..." -ForegroundColor Yellow
     Connect-MicrosoftTeams
-    Write-Host "Verbindung zu Teams hergestellt." -ForegroundColor Green
+    Write-Host "Connected to Teams." -ForegroundColor Green
 }
 
-# Prüfe Graph-Verbindung
+# Check Graph connection
 try {
     $graphContext = Get-MgContext
     if ($graphContext) {
-        Write-Host "Bestehende Graph-Verbindung gefunden." -ForegroundColor Green
-        # Prüfe, ob alle benötigten Scopes vorhanden sind
+        Write-Host "Existing Graph connection found." -ForegroundColor Green
+        # Check if all required scopes are present
         $requiredScopes = @("User.Read.All", "Team.ReadBasic.All", "Channel.ReadBasic.All", "ChannelMessage.Read.All")
         $missingScopes = $requiredScopes | Where-Object { $_ -notin $graphContext.Scopes }
         if ($missingScopes) {
-            Write-Host "Ergänze fehlende Berechtigungen..." -ForegroundColor Yellow
+            Write-Host "Adding missing permissions..." -ForegroundColor Yellow
             Connect-MgGraph -Scopes $requiredScopes
         }
     } else {
-        Write-Host "Stelle neue Graph-Verbindung her..." -ForegroundColor Yellow
+        Write-Host "Establishing new Graph connection..." -ForegroundColor Yellow
         Connect-MgGraph -Scopes "User.Read.All", "Team.ReadBasic.All", "Channel.ReadBasic.All", "ChannelMessage.Read.All"
     }
-    Write-Host "Graph-Verbindung ist bereit." -ForegroundColor Green
+    Write-Host "Graph connection ready." -ForegroundColor Green
 } catch {
-    Write-Host "Stelle neue Graph-Verbindung her..." -ForegroundColor Yellow
+    Write-Host "Establishing new Graph connection..." -ForegroundColor Yellow
     Connect-MgGraph -Scopes "User.Read.All", "Team.ReadBasic.All", "Channel.ReadBasic.All", "ChannelMessage.Read.All"
-    Write-Host "Verbindung zu Graph hergestellt." -ForegroundColor Green
+    Write-Host "Connected to Graph." -ForegroundColor Green
 }
 
-# Alle Teams abrufen
-Write-Host "`nRufe Teams-Informationen ab..." -ForegroundColor Yellow
+# Get all teams
+Write-Host "`nRetrieving team information..." -ForegroundColor Yellow
 $teams = Get-Team
 
-# Begrenze die Anzahl der Teams, falls gewünscht
+# Limit number of teams if requested
 if ($max -gt 0) {
-    Write-Host "Zeige nur die ersten $max Teams an..." -ForegroundColor Yellow
+    Write-Host "Showing only the first $max teams..." -ForegroundColor Yellow
     $teams = $teams | Select-Object -First $max
 }
 
 $teamCount = $teams.Count
-Write-Host "`nVerarbeite $teamCount Teams..." -ForegroundColor Green
+Write-Host "`nProcessing $teamCount teams..." -ForegroundColor Green
 
-# Für jedes Team die Kanäle abrufen
+# Get channels for each team
 $currentTeam = 0
 foreach ($team in $teams) {
     $currentTeam++
-    Write-Host "`nVerarbeite Team $currentTeam von $teamCount" -ForegroundColor Cyan
+    Write-Host "`nProcessing Team $currentTeam of $teamCount" -ForegroundColor Cyan
     Write-Host "Team: $($team.DisplayName)"
     Write-Host "Team ID: $($team.GroupId)"
     
-    # Team-Owner abrufen
-    Write-Host "Rufe Team-Owner ab..." -ForegroundColor Gray
+    # Get team owners
+    Write-Host "Retrieving team owners..." -ForegroundColor Gray
     $owners = Get-TeamUser -GroupId $team.GroupId -Role Owner
-    Write-Host "Team-Owner:"
+    Write-Host "Team Owners:"
     foreach ($owner in $owners) {
         Write-Host "  - $($owner.User)"
     }
     
-    Write-Host "Rufe Kanäle ab..." -ForegroundColor Gray
+    Write-Host "Retrieving channels..." -ForegroundColor Gray
     $channels = Get-TeamChannel -GroupId $team.GroupId
-    Write-Host "Kanäle:"
+    Write-Host "Channels:"
     foreach ($channel in $channels) {
         Write-Host "  - $($channel.DisplayName)"
         
-        # Kanälnutzung überprüfen
+        # Check channel usage
         try {
-            Write-Host "    Prüfe Kanälnutzung..." -ForegroundColor Gray
+            Write-Host "    Checking channel usage..." -ForegroundColor Gray
             $messages = Get-MgTeamChannelMessage -TeamId $team.GroupId -ChannelId $channel.Id -Top 1
             $files = Get-MgTeamChannelFileFolder -TeamId $team.GroupId -ChannelId $channel.Id
             
             if ($messages -or $files) {
-                Write-Host "    * Aktiv: Ja"
+                Write-Host "    * Active: Yes"
                 if ($messages) { 
                     $lastMessage = $messages[0]
-                    Write-Host "      - Letzte Nachricht: $($lastMessage.CreatedDateTime)"
+                    Write-Host "      - Last message: $($lastMessage.CreatedDateTime)"
                 }
                 if ($files) { 
-                    Write-Host "      - Enthält Dateien"
+                    Write-Host "      - Contains files"
                 }
             } else {
-                Write-Host "    * Aktiv: Nein"
+                Write-Host "    * Active: No"
             }
         } catch {
-            Write-Host "    * Aktiv: Unbekannt (Fehler beim Abrufen der Daten)"
+            Write-Host "    * Active: Unknown (Error retrieving data)"
         }
     }
 }
 
-Write-Host "`nVerbindung wird getrennt..." -ForegroundColor Yellow
-# Verbindung trennen
+Write-Host "`nDisconnecting..." -ForegroundColor Yellow
+# Disconnect
 Disconnect-MicrosoftTeams
 Disconnect-MgGraph
 
-Write-Host "`nAnalyse abgeschlossen!" -ForegroundColor Green
+Write-Host "`nAnalysis completed!" -ForegroundColor Green
