@@ -69,18 +69,8 @@ if (-not (Get-Module -Name MicrosoftTeams)) {
     Write-Host "Microsoft Teams PowerShell module already loaded." -ForegroundColor Green
 }
 
-if (-not (Get-Module -Name Microsoft.Graph)) {
-    Write-Host "Loading Microsoft Graph PowerShell module..." -ForegroundColor Gray
-    Import-Module Microsoft.Graph -DisableNameChecking
-    Write-Host "Microsoft Graph PowerShell module loaded." -ForegroundColor Green
-} else {
-    Write-Host "Microsoft Graph PowerShell module already loaded." -ForegroundColor Green
-}
-
-# Connect to Teams and Graph
-Write-Host "`nEstablishing connections to Teams and Graph..." -ForegroundColor Yellow
-
-# Check Teams connection
+# Connect to Teams
+Write-Host "`nEstablishing connection to Teams..." -ForegroundColor Yellow
 try {
     $teamsContext = Get-Team
     Write-Host "Existing Teams connection found." -ForegroundColor Green
@@ -90,19 +80,11 @@ try {
     Write-Host "Connected to Teams." -ForegroundColor Green
 }
 
-# Check Graph connection
+# Connect to Graph only when needed
+Write-Host "`nEstablishing Graph connection..." -ForegroundColor Yellow
 try {
     $graphContext = Get-MgContext
-    if ($graphContext) {
-        Write-Host "Existing Graph connection found." -ForegroundColor Green
-        # Check if all required scopes are present
-        $requiredScopes = @("User.Read.All", "Team.ReadBasic.All", "Channel.ReadBasic.All", "ChannelMessage.Read.All")
-        $missingScopes = $requiredScopes | Where-Object { $_ -notin $graphContext.Scopes }
-        if ($missingScopes) {
-            Write-Host "Adding missing permissions..." -ForegroundColor Yellow
-            Connect-MgGraph -Scopes $requiredScopes
-        }
-    } else {
+    if (-not $graphContext) {
         Write-Host "Establishing new Graph connection..." -ForegroundColor Yellow
         Connect-MgGraph -Scopes "User.Read.All", "Team.ReadBasic.All", "Channel.ReadBasic.All", "ChannelMessage.Read.All"
     }
@@ -126,11 +108,13 @@ if ($max -gt 0) {
 $teamCount = $teams.Count
 Write-Host "`nProcessing $teamCount teams..." -ForegroundColor Green
 
-# Get channels for each team
-$currentTeam = 0
-foreach ($team in $teams) {
-    $currentTeam++
-    Write-Host "`nProcessing Team $currentTeam of $teamCount" -ForegroundColor Cyan
+# Process teams in parallel
+$teams | ForEach-Object -Parallel {
+    $team = $_
+    $teamCount = $using:teamCount
+    $teamIndex = [array]::IndexOf($using:teams, $team) + 1
+    
+    Write-Host "`nProcessing Team $teamIndex of $teamCount" -ForegroundColor Cyan
     Write-Host "Team: $($team.DisplayName)"
     Write-Host "Team ID: $($team.GroupId)"
     
@@ -151,8 +135,16 @@ foreach ($team in $teams) {
         # Check channel usage
         try {
             Write-Host "    Checking channel usage..." -ForegroundColor Gray
-            $messages = Get-MgTeamChannelMessage -TeamId $team.GroupId -ChannelId $channel.Id -Top 1
-            $files = Get-MgTeamChannelFileFolder -TeamId $team.GroupId -ChannelId $channel.Id
+            try {
+                $messages = Get-MgTeamChannelMessage -TeamId $team.GroupId -ChannelId $channel.Id -Top 1 -ErrorAction SilentlyContinue
+            } catch {
+                $messages = $null
+            }
+            try {
+                $files = Get-MgTeamChannelFileFolder -TeamId $team.GroupId -ChannelId $channel.Id -ErrorAction SilentlyContinue
+            } catch {
+                $files = $null
+            }
             
             if ($messages -or $files) {
                 Write-Host "    * Active: Yes"
@@ -170,7 +162,7 @@ foreach ($team in $teams) {
             Write-Host "    * Active: Unknown (Error retrieving data)"
         }
     }
-}
+} -ThrottleLimit 5
 
 Write-Host "`nDisconnecting..." -ForegroundColor Yellow
 # Disconnect
