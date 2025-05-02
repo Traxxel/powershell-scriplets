@@ -1,6 +1,12 @@
 # PowerShell Scriptlets
 
-A collection of useful PowerShell scripts for various administrative tasks.
+A collection of PowerShell scripts for Microsoft 365 administration.
+
+## Available Scripts
+
+### Teams Channel Owner Analysis
+`teams-list-channelowners/teams-list-channelowners.ps1`
+Lists all Teams channels and their owners, including channel activity status.
 
 ## Scripts
 
