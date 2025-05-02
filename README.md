@@ -7,23 +7,7 @@ A collection of PowerShell scripts for Microsoft 365 administration.
 ### Teams Channel Owner Analysis
 `teams-list-channelowners/teams-list-channelowners.ps1`
 Lists all Teams channels and their owners, including channel activity status.
-
-## Scripts
-
-### Teams Channel Owner Analysis
-Location: `teams-list-channelowners/`
-
-A PowerShell script that analyzes Microsoft Teams channels and their owners, providing detailed information about team structure and channel usage.
-
-Features:
-- Lists all teams in your organization
-- Shows team owners for each team
-- Displays all channels within each team
-- Checks channel activity (messages and files)
-- Shows last message date for active channels
-- Provides detailed progress information during execution
-
-For detailed documentation and usage instructions, see the [Teams Channel Owner Analysis README](teams-list-channelowners/README.md).
+[Teams Channel Owner Analysis README](teams-list-channelowners/README.md).
 
 ## Requirements
 
